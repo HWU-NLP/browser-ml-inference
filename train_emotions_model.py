@@ -1,12 +1,11 @@
 import datasets
 from datasets import load_dataset
 import transformers
-import onnx
-import onnxruntime
 from onnxruntime.quantization import quantize_dynamic, QuantType
 import onnxruntime as ort
 
 import numpy as np
+import evaluate
 import torch
 from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
@@ -35,16 +34,18 @@ def load_model(model_name: str):
     print(device)
     return model, tokenizer
 
-def compute_metrics(metric, eval_pred):
-    logits, labels = eval_pred
+def compute_metrics(eval_pred):    
+    logits, labels = eval_pred    
     predictions = np.argmax(logits, axis=-1)
+    metric = evaluate.load("accuracy")
     return metric.compute(predictions=predictions, references=labels)
 
 def train_model(model, train_dataset, eval_dataset, metrics_fn):
     training_args = TrainingArguments("test_trainer",
                                   per_device_train_batch_size=128, 
                                   num_train_epochs=24,
-                                  learning_rate=3e-05)    
+                                  learning_rate=3e-05,
+                                  eval_strategy="epoch",)    
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -63,21 +64,31 @@ def convert_to_onnx(model, tokenizer, model_name_out):
                  weight_type=QuantType.QUInt8)
 
 
-def predict_on_dataset(model_name, dataset, quantized=True):
-    if quantized:
-        model_name = model_name + ".onnx"
-    else:
-        model_name = model_name + "_int8.onnx"
+def predict_on_dataset(model_name, dataset, metric, quantized=True):
+    
+    model_name = model_name + (".onnx" if quantized else "_int8.onnx")    
     session = ort.InferenceSession(model_name)    
+    input_feed = {
+    "input_ids": np.array(dataset['input_ids']),
+    "attention_mask": np.array(dataset['attention_mask']),
+    "token_type_ids": np.array(dataset['token_type_ids'])
+    }
+    out = session.run(input_feed=input_feed,output_names=['output_0'])[0]
+    predictions = np.argmax(out, axis=-1) # type: ignore
+    return metric.compute(predictions=predictions, references=dataset['label'])
 
 def main():
     model_name = 'microsoft/xtremedistil-l6-h256-uncased'
+    model_name_out = "emotion_classifier"
     dataset_name = "emotion"
 
     train, eval = dataset_loader(dataset_name)
     model, tokenizer = load_model(model_name)
 
     train_model(model=model, train_dataset=train, eval_dataset=eval, metrics_fn=compute_metrics)
+    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out)
+    metric = evaluate.load("accuracy")
+    predict_on_dataset(model_name=model_name, dataset=eval, metric=metric)
 
 if __name__ == "__main__":
     main()
