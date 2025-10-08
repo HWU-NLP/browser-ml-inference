@@ -9,7 +9,7 @@ import * as wasmFeatureDetect from 'wasm-feature-detect';
 const ort = require('onnxruntime-web');
 
 //requires Cross-Origin-*-policy headers https://web.dev/coop-coep/
-/**
+
 const simdResolver = wasmFeatureDetect.simd().then(simdSupported => {
     console.log("simd is supported? "+ simdSupported);
     if (simdSupported) {
@@ -20,7 +20,7 @@ const simdResolver = wasmFeatureDetect.simd().then(simdSupported => {
       ort.env.wasm.simd = false;
     }
 });
-*/
+
 
 const options = {
   executionProviders: ['wasm'], 
