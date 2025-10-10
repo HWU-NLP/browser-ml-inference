@@ -16,7 +16,7 @@ def load_model(model_name: str):
     print(device)
     return model, tokenizer
 
-def convert_to_onnx(model, tokenizer, model_name_out):
+def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     pipeline = pipe("text-classification",model=model,tokenizer=tokenizer)
     model = model.to("cpu")
     onnx_convert.convert_pytorch(pipeline, opset=11, output=Path(model_name_out + ".onnx"), use_external_format=False)
@@ -34,7 +34,7 @@ def main():
         config = yaml.safe_load(file)
 
         model, tokenizer = load_model(model_name=config["model"])
-        convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=config['model_name_out'])
+        convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=config['model_name_out'], opset=config['opset'])
     
 
 if __name__ == "__main__":

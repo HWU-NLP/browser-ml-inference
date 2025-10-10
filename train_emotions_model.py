@@ -57,10 +57,14 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
     trainer.evaluate()
     trainer.save_model("test_trainer/emotion_model")
 
-def convert_to_onnx(model, tokenizer, model_name_out):
+def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
     model = model.to("cpu")
+<<<<<<< HEAD
+    onnx_convert.convert_pytorch(pipeline, opset=opset, output=Path(model_name_out + ".onnx"), use_external_format=False)
+=======
     onnx_convert.convert_pytorch(pipeline, opset=18, output=Path(model_name_out + ".onnx"), use_external_format=False)
+>>>>>>> 0e97410388d42531ed896be6d6b3371f7703e9d8
     quantize_dynamic(model_name_out + ".onnx", model_name_out + "_int8.onnx", 
                  weight_type=QuantType.QUInt8)
 
@@ -83,11 +87,17 @@ def main():
     # model_name = '/scratch/ik36/browser-ml-inference/test_trainer/checkpoint-1008'
     model_name_out = "emotion_classifier"
     dataset_name = "emotion"
+<<<<<<< HEAD
+    opset = 18 # maximum compatible with onnxruntime 1.23.0
+
+    train, eval = dataset_loader(dataset_name)
+=======
     
+>>>>>>> 0e97410388d42531ed896be6d6b3371f7703e9d8
     model, tokenizer = load_model(model_name)
     train, eval = dataset_loader(dataset_name, tokenizer=tokenizer)
     train_model(model=model, train_dataset=train, eval_dataset=eval, metrics_fn=compute_metrics)
-    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out)
+    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
     metric = evaluate.load("accuracy")
     predict_on_dataset(model_name=model_name, dataset=eval, metric=metric)
 
