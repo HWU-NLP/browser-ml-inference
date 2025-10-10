@@ -26,9 +26,10 @@ def dataset_loader(dataset_name: str, tokenizer):
     return full_train_dataset, full_eval_dataset
 
 def load_model(model_name: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model_path = Path(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=6)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path if model_path.exists() else model_name, num_labels=6)
     model = model.to(device)    
     print(device)
     return model, tokenizer
@@ -54,6 +55,7 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
     )
     trainer.train()
     trainer.evaluate()
+    trainer.save_model("test_trainer/emotion_model")
 
 def convert_to_onnx(model, tokenizer, model_name_out):
     pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
@@ -78,6 +80,7 @@ def predict_on_dataset(model_name, dataset, metric, quantized=True):
 
 def main():
     model_name = 'microsoft/xtremedistil-l6-h256-uncased'
+    # model_name = '/scratch/ik36/browser-ml-inference/test_trainer/checkpoint-1008'
     model_name_out = "emotion_classifier"
     dataset_name = "emotion"
     
