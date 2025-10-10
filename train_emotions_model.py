@@ -18,13 +18,12 @@ from transformers import Trainer
 def tokenize_function(examples, tokenizer):
     return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=128)
 
-def dataset_loader(dataset_name: str):
+def dataset_loader(dataset_name: str, tokenizer):
     dataset = load_dataset(dataset_name)
-    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+    tokenized_datasets = dataset.map(lambda examples: tokenize_function(examples, tokenizer), batched=True)
     full_train_dataset = tokenized_datasets["train"]
     full_eval_dataset = tokenized_datasets["test"]
     return full_train_dataset, full_eval_dataset
-    
 
 def load_model(model_name: str):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -59,7 +58,11 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
 def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
     model = model.to("cpu")
+<<<<<<< HEAD
     onnx_convert.convert_pytorch(pipeline, opset=opset, output=Path(model_name_out + ".onnx"), use_external_format=False)
+=======
+    onnx_convert.convert_pytorch(pipeline, opset=18, output=Path(model_name_out + ".onnx"), use_external_format=False)
+>>>>>>> 0e97410388d42531ed896be6d6b3371f7703e9d8
     quantize_dynamic(model_name_out + ".onnx", model_name_out + "_int8.onnx", 
                  weight_type=QuantType.QUInt8)
 
@@ -81,11 +84,15 @@ def main():
     model_name = 'microsoft/xtremedistil-l6-h256-uncased'
     model_name_out = "emotion_classifier"
     dataset_name = "emotion"
+<<<<<<< HEAD
     opset = 18 # maximum compatible with onnxruntime 1.23.0
 
     train, eval = dataset_loader(dataset_name)
+=======
+    
+>>>>>>> 0e97410388d42531ed896be6d6b3371f7703e9d8
     model, tokenizer = load_model(model_name)
-
+    train, eval = dataset_loader(dataset_name, tokenizer=tokenizer)
     train_model(model=model, train_dataset=train, eval_dataset=eval, metrics_fn=compute_metrics)
     convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
     metric = evaluate.load("accuracy")
