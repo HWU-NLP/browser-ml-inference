@@ -1,0 +1,42 @@
+cuda:0
+{'eval_loss': 1.2500914335250854, 'eval_accuracy': 0.6115, 'eval_runtime': 2.097, 'eval_samples_per_second': 953.726, 'eval_steps_per_second': 119.216, 'epoch': 1.0}
+{'eval_loss': 0.9587922692298889, 'eval_accuracy': 0.7065, 'eval_runtime': 1.987, 'eval_samples_per_second': 1006.555, 'eval_steps_per_second': 125.819, 'epoch': 2.0}
+{'eval_loss': 0.7932886481285095, 'eval_accuracy': 0.7405, 'eval_runtime': 2.0224, 'eval_samples_per_second': 988.942, 'eval_steps_per_second': 123.618, 'epoch': 3.0}
+{'loss': 1.0961, 'grad_norm': 3.4023337364196777, 'learning_rate': 2.501e-05, 'epoch': 4.0}
+{'eval_loss': 0.6884641051292419, 'eval_accuracy': 0.7785, 'eval_runtime': 1.9603, 'eval_samples_per_second': 1020.278, 'eval_steps_per_second': 127.535, 'epoch': 4.0}
+{'eval_loss': 0.595790445804596, 'eval_accuracy': 0.8315, 'eval_runtime': 2.0884, 'eval_samples_per_second': 957.66, 'eval_steps_per_second': 119.707, 'epoch': 5.0}
+{'eval_loss': 0.5335038900375366, 'eval_accuracy': 0.8655, 'eval_runtime': 1.9663, 'eval_samples_per_second': 1017.14, 'eval_steps_per_second': 127.142, 'epoch': 6.0}
+{'eval_loss': 0.4929647743701935, 'eval_accuracy': 0.862, 'eval_runtime': 2.0324, 'eval_samples_per_second': 984.043, 'eval_steps_per_second': 123.005, 'epoch': 7.0}
+{'loss': 0.5786, 'grad_norm': 2.7637343406677246, 'learning_rate': 2.0010000000000003e-05, 'epoch': 8.0}
+{'eval_loss': 0.45759591460227966, 'eval_accuracy': 0.873, 'eval_runtime': 2.0091, 'eval_samples_per_second': 995.452, 'eval_steps_per_second': 124.432, 'epoch': 8.0}
+{'eval_loss': 0.41295674443244934, 'eval_accuracy': 0.882, 'eval_runtime': 2.0469, 'eval_samples_per_second': 977.08, 'eval_steps_per_second': 122.135, 'epoch': 9.0}
+{'eval_loss': 0.3807404041290283, 'eval_accuracy': 0.8955, 'eval_runtime': 2.048, 'eval_samples_per_second': 976.549, 'eval_steps_per_second': 122.069, 'epoch': 10.0}
+{'eval_loss': 0.35990187525749207, 'eval_accuracy': 0.901, 'eval_runtime': 2.0239, 'eval_samples_per_second': 988.207, 'eval_steps_per_second': 123.526, 'epoch': 11.0}
+{'loss': 0.4038, 'grad_norm': 3.2285759449005127, 'learning_rate': 1.5009999999999999e-05, 'epoch': 12.0}
+{'eval_loss': 0.34880805015563965, 'eval_accuracy': 0.8965, 'eval_runtime': 1.9869, 'eval_samples_per_second': 1006.601, 'eval_steps_per_second': 125.825, 'epoch': 12.0}
+{'eval_loss': 0.3223899006843567, 'eval_accuracy': 0.906, 'eval_runtime': 1.9608, 'eval_samples_per_second': 1019.986, 'eval_steps_per_second': 127.498, 'epoch': 13.0}
+{'eval_loss': 0.31805816292762756, 'eval_accuracy': 0.9145, 'eval_runtime': 2.0057, 'eval_samples_per_second': 997.172, 'eval_steps_per_second': 124.646, 'epoch': 14.0}
+{'eval_loss': 0.29886093735694885, 'eval_accuracy': 0.917, 'eval_runtime': 1.951, 'eval_samples_per_second': 1025.136, 'eval_steps_per_second': 128.142, 'epoch': 15.0}
+{'loss': 0.3114, 'grad_norm': 4.5056962966918945, 'learning_rate': 1.001e-05, 'epoch': 16.0}
+{'eval_loss': 0.29061058163642883, 'eval_accuracy': 0.9185, 'eval_runtime': 2.0046, 'eval_samples_per_second': 997.723, 'eval_steps_per_second': 124.715, 'epoch': 16.0}
+{'eval_loss': 0.2841002345085144, 'eval_accuracy': 0.917, 'eval_runtime': 1.9845, 'eval_samples_per_second': 1007.834, 'eval_steps_per_second': 125.979, 'epoch': 17.0}
+{'eval_loss': 0.2730411887168884, 'eval_accuracy': 0.92, 'eval_runtime': 1.9667, 'eval_samples_per_second': 1016.938, 'eval_steps_per_second': 127.117, 'epoch': 18.0}
+{'eval_loss': 0.27236998081207275, 'eval_accuracy': 0.919, 'eval_runtime': 2.0317, 'eval_samples_per_second': 984.406, 'eval_steps_per_second': 123.051, 'epoch': 19.0}
+{'loss': 0.2577, 'grad_norm': 3.2986576557159424, 'learning_rate': 5.01e-06, 'epoch': 20.0}
+{'eval_loss': 0.2713676989078522, 'eval_accuracy': 0.92, 'eval_runtime': 2.0113, 'eval_samples_per_second': 994.365, 'eval_steps_per_second': 124.296, 'epoch': 20.0}
+{'eval_loss': 0.2684928774833679, 'eval_accuracy': 0.9215, 'eval_runtime': 1.9736, 'eval_samples_per_second': 1013.391, 'eval_steps_per_second': 126.674, 'epoch': 21.0}
+{'eval_loss': 0.2655083239078522, 'eval_accuracy': 0.921, 'eval_runtime': 1.9858, 'eval_samples_per_second': 1007.164, 'eval_steps_per_second': 125.896, 'epoch': 22.0}
+{'eval_loss': 0.26239728927612305, 'eval_accuracy': 0.9215, 'eval_runtime': 1.9697, 'eval_samples_per_second': 1015.383, 'eval_steps_per_second': 126.923, 'epoch': 23.0}
+{'loss': 0.2298, 'grad_norm': 3.2745344638824463, 'learning_rate': 1e-08, 'epoch': 24.0}
+{'eval_loss': 0.2623436152935028, 'eval_accuracy': 0.9205, 'eval_runtime': 2.0395, 'eval_samples_per_second': 980.627, 'eval_steps_per_second': 122.578, 'epoch': 24.0}
+{'train_runtime': 281.4083, 'train_samples_per_second': 1364.565, 'train_steps_per_second': 10.661, 'train_loss': 0.47955843607584636, 'epoch': 24.0}
+Using framework PyTorch: 2.8.0+cu128
+Found input input_ids with shape: {0: 'batch', 1: 'sequence'}
+Found input token_type_ids with shape: {0: 'batch', 1: 'sequence'}
+Found input attention_mask with shape: {0: 'batch', 1: 'sequence'}
+Found output output_0 with shape: {0: 'batch'}
+Ensuring inputs are in correct order
+position_ids is not present in the generated input list.
+Generated inputs order: ['input_ids', 'attention_mask', 'token_type_ids']
+ONNX and quantised models saved: emotion_classifier.onnx, emotion_classifier_int8.onnx
+ONNX model accuracy: {'accuracy': 0.9205} -- based on microsoft/xtremedistil-l6-h256-uncased

@@ -1,0 +1,10 @@
+cuda:0
+{'eval_loss': nan, 'eval_accuracy': 0.2905, 'eval_runtime': 9.2067, 'eval_samples_per_second': 217.234, 'eval_steps_per_second': 27.154, 'epoch': 1.0}
+{'loss': 34367107760.128, 'grad_norm': nan, 'learning_rate': 1.004e-05, 'epoch': 2.0}
+{'eval_loss': nan, 'eval_accuracy': 0.2905, 'eval_runtime': 9.0986, 'eval_samples_per_second': 219.814, 'eval_steps_per_second': 27.477, 'epoch': 2.0}
+{'eval_loss': nan, 'eval_accuracy': 0.2905, 'eval_runtime': 9.0832, 'eval_samples_per_second': 220.186, 'eval_steps_per_second': 27.523, 'epoch': 3.0}
+{'train_runtime': 794.1014, 'train_samples_per_second': 60.446, 'train_steps_per_second': 0.944, 'train_loss': 22911405173.418667, 'epoch': 3.0}
+Using framework PyTorch: 2.8.0+cu128
+Found input input_ids with shape: {0: 'batch', 1: 'sequence'}
+Found input attention_mask with shape: {0: 'batch', 1: 'sequence'}
+Found output output_0 with shape: {0: 'batch', 1: 'sequence'}
