@@ -24,3 +24,6 @@ yarn-error.log*
 
 # HF trainer
 test_trainer/
+
+transformer-js-inference/node_modules
+transformer-js-inference/models
