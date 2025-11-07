@@ -8,6 +8,7 @@ dependencies = [
     "accelerate>=0.26.0",
     "datasets>=4.1.1",
     "evaluate>=0.4.6",
+    "ipdb>=0.13.13",
     "onnx>=1.19.0",
     "onnxruntime>=1.23.1",
     "scikit-learn>=1.7.2",

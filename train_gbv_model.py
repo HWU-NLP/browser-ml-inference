@@ -35,7 +35,7 @@ def convert_hs_label(label):
         return -1
 
 def generate_prompt(text):
-    return f"\{INSTRUCTION} Text: {text} {CHOICES} Answer:" 
+    return f"{INSTRUCTION} Text: {text} {CHOICES} Answer:" 
 
 def tokenize_function(examples, tokenizer):
     return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
@@ -58,7 +58,7 @@ def dataset_loader(dataset_name: str, tokenizer):
     
     train_dataset = Dataset.from_pandas(train)
     val_dataset = Dataset.from_pandas(val)
-    test_dataset = Dataset.from_pandas(test)
+    test_dataset = Dataset.from_pandas(test.iloc[:10, :])  # reduce test size for faster debugging
     # ipdb.set_trace()
     
     tokenized_train_dataset = train_dataset.map(lambda examples: tokenize_function(examples, tokenizer), batched=True)
@@ -69,8 +69,11 @@ def dataset_loader(dataset_name: str, tokenizer):
 def load_model(model_name: str):
     model_path = Path(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    model = AutoModelForSequenceClassification.from_pretrained(model_path if model_path.exists() else model_name, num_labels=2)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = AutoModelForSequenceClassification.from_pretrained(model_path if model_path.exists() else model_name, 
+                                                               num_labels=2, 
+                                                               device_map="auto",
+                                                               dtype=torch.float16)
     model = model.to(device)    
     print(device)
     return model, tokenizer
@@ -126,7 +129,7 @@ def predict_on_dataset(model_name, model_name_out, dataset, metric, quantized=Tr
     input_feed = {
         "input_ids": np.array(dataset['input_ids']),
         "attention_mask": np.array(dataset['attention_mask']),
-        "token_type_ids": np.array(dataset['token_type_ids'])
+        # "token_type_ids": np.array(dataset['token_type_ids'])
     }
     out = session.run(input_feed=input_feed,output_names=['output_0'])[0]
     predictions = np.argmax(out, axis=-1) # type: ignore
@@ -141,11 +144,11 @@ def main():
     train, val, test = dataset_loader(dataset_name, tokenizer=tokenizer)
     # ipdb.set_trace()
     
-    train_model(model=model, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
+    # train_model(model=model, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
     # ipdb.set_trace()
     
     opset = 20
-    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
+    # convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
     
     metric = evaluate.load("accuracy")
     result = predict_on_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric)
