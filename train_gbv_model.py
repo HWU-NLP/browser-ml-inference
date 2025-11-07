@@ -144,11 +144,11 @@ def main():
     train, val, test = dataset_loader(dataset_name, tokenizer=tokenizer)
     # ipdb.set_trace()
     
-    # train_model(model=model, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
+    train_model(model=model, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
     # ipdb.set_trace()
     
     opset = 20
-    # convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
+    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
     
     metric = evaluate.load("accuracy")
     result = predict_on_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric)
