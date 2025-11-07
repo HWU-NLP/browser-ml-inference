@@ -46,11 +46,14 @@ def compute_metrics(eval_pred):
 
 def train_model(model, train_dataset, eval_dataset, metrics_fn):
     training_args = TrainingArguments(
-        "test_trainer",
+        "test_trainer1",
         per_device_train_batch_size=128, 
-        num_train_epochs=24,
+        num_train_epochs=2, #24,
         learning_rate=3e-05,
         eval_strategy="epoch",
+        # save_strategy="epoch",
+        # save_total_limit=2,
+        # load_best_model_at_end=True,
     )    
     trainer = Trainer(
         model=model,
@@ -61,7 +64,7 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
     )
     trainer.train()
     trainer.evaluate()
-    trainer.save_model("test_trainer/emotion_model")
+    trainer.save_model("test_trainer1/emotion_model")
 
 def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
@@ -75,7 +78,7 @@ def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     quantize_dynamic(
         model_name_out + ".onnx", 
         model_name_out + "_int8.onnx", 
-        weight_type=QuantType.QUInt8
+        weight_type=QuantType.QUInt8,
     )
     print(f"ONNX and quantised models saved: {model_name_out}.onnx, {model_name_out}_int8.onnx")
 
@@ -86,9 +89,9 @@ def predict_on_dataset(model_name, model_name_out, dataset, metric, quantized=Tr
     model_name = model_name_out + (".onnx" if quantized else "_int8.onnx")    
     session = ort.InferenceSession(model_name)    
     input_feed = {
-    "input_ids": np.array(dataset['input_ids']),
-    "attention_mask": np.array(dataset['attention_mask']),
-    "token_type_ids": np.array(dataset['token_type_ids'])
+        "input_ids": np.array(dataset['input_ids']),
+        "attention_mask": np.array(dataset['attention_mask']),
+        "token_type_ids": np.array(dataset['token_type_ids'])
     }
     out = session.run(input_feed=input_feed,output_names=['output_0'])[0]
     predictions = np.argmax(out, axis=-1) # type: ignore
@@ -96,8 +99,7 @@ def predict_on_dataset(model_name, model_name_out, dataset, metric, quantized=Tr
     
 def main():
     model_name = 'microsoft/xtremedistil-l6-h256-uncased'
-    # model_name = '/scratch/ik36/browser-ml-inference/test_trainer/checkpoint-1008'
-    model_name_out = "emotion_classifier"
+    model_name_out = "onnx/emotion_classifier1"
     dataset_name = "dair-ai/emotion" #"emotion"
     model, tokenizer = load_model(model_name)
     train, eval = dataset_loader(dataset_name, tokenizer=tokenizer)
