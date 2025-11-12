@@ -107,8 +107,8 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
     trainer.save_model("test_trainer/gbv_model")
 
 def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
+    model = model.to("cpu").to(torch.float32)
     pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
-    model = model.to("cpu")
     onnx_convert.convert_pytorch(
         pipeline, 
         opset=opset, 
@@ -123,16 +123,14 @@ def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     print(f"ONNX and quantised models saved: {model_name_out}.onnx, {model_name_out}_int8.onnx")
 
 def predict_on_dataset(model_name, model_name_out, dataset, metric, quantized=True):
-    
-    model_name = model_name_out + (".onnx" if quantized else "_int8.onnx")    
+    model_name = model_name_out + (".onnx" if not quantized else "_int8.onnx")    
     session = ort.InferenceSession(model_name)    
     input_feed = {
         "input_ids": np.array(dataset['input_ids']),
         "attention_mask": np.array(dataset['attention_mask']),
-        # "token_type_ids": np.array(dataset['token_type_ids'])
     }
     out = session.run(input_feed=input_feed,output_names=['output_0'])[0]
-    predictions = np.argmax(out, axis=-1) # type: ignore
+    predictions = np.argmax(out, axis=-1) 
     return metric.compute(predictions=predictions, references=dataset['label'])
     
 def main():
