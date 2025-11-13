@@ -84,9 +84,9 @@ def compute_metrics(eval_pred):
     metric = evaluate.load("accuracy")
     return metric.compute(predictions=predictions, references=labels)
 
-def train_model(model, train_dataset, eval_dataset, metrics_fn):
+def train_model(model, tokenizer, train_dataset, eval_dataset, metrics_fn):
     training_args = TrainingArguments(
-        "test_trainer1",
+        "test_trainer_ckpt",
         per_device_train_batch_size=128, 
         num_train_epochs=10, #24,
         learning_rate=2e-05,
@@ -105,6 +105,7 @@ def train_model(model, train_dataset, eval_dataset, metrics_fn):
     trainer.train()
     trainer.evaluate()
     trainer.save_model("test_trainer/gbv_model")
+    tokenizer.save_pretrained("test_trainer/gbv_model")
 
 def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
     model = model.to("cpu").to(torch.float32)
@@ -142,7 +143,7 @@ def main():
     train, val, test = dataset_loader(dataset_name, tokenizer=tokenizer)
     # ipdb.set_trace()
     
-    train_model(model=model, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
+    train_model(model=model, tokenizer=tokenizer, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
     # ipdb.set_trace()
     
     opset = 20
