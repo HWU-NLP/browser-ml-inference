@@ -18,7 +18,7 @@ async function main() {
     "Women should not be in politics.",
     "Everyone deserves respect and equality."
   ];
-  const modelName = 'Heriot-WattUniversity/gbv-classifier-roberta-base';
+  const modelName = 'Heriot-WattUniversity/gbv-classifier-roberta-base-onnx';
   const tokenizer = await AutoTokenizer.from_pretrained(modelName);
   
   const promptTexts = texts.map(generatePrompt);
