@@ -14,7 +14,7 @@ import onnxruntime as ort
 
 import ipdb
 
-INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output A if it contains GBV, or B if not."
+INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output 1 if it contains GBV, or 0 if not."
 CHOICES = "Choices: 1 for GBV, or 0 for Not GBV"
     
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -107,7 +107,6 @@ def predict_on_batch_dataset(model_name, model_name_out, dataset, metric, quanti
     return metric.compute(predictions=all_preds, references=all_labels)
  
 def main():
-    # model_name = 'microsoft/xtremedistil-l6-h256-uncased'
     model_name = 'FacebookAI/roberta-base'
     model_name_out = "onnx/gbv_classifier"
     dataset_name = "dair-ai/emotion" #"emotion"
