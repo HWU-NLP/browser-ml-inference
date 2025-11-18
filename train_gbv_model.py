@@ -1,8 +1,6 @@
 import datasets
 from datasets import load_dataset, Dataset
 import transformers
-from onnxruntime.quantization import quantize_dynamic, QuantType
-import onnxruntime as ort
 
 import os
 import numpy as np
@@ -11,7 +9,7 @@ import evaluate
 import torch
 from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
-import transformers.convert_graph_to_onnx as onnx_convert
+from transformers import DataCollatorWithPadding
 from pathlib import Path
 
 from transformers import TrainingArguments
@@ -23,8 +21,13 @@ import ipdb
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 
-INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output A if it contains GBV, or B if not."
+INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output 1 if it contains GBV, or 0 if not."
 CHOICES = "Choices: 1 for GBV, or 0 for Not GBV"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SEED = 42
+
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
 def convert_hs_label(label):
     if label == "sexist":
@@ -40,17 +43,16 @@ def generate_prompt(text):
 def tokenize_function(examples, tokenizer):
     return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
 
-def dataset_loader(dataset_name: str, tokenizer):
-    # dataset = load_dataset(dataset_name)
+def dataset_loader(tokenizer):
     train_val = pd.read_csv("data/edos-train.tsv", sep="\t")
-    train, val = train_test_split(train_val, test_size=0.2, random_state=42, shuffle=True)
+    train, val = train_test_split(train_val, test_size=0.2, random_state=SEED, shuffle=True)
     test = pd.read_csv("data/edos-test.tsv", sep="\t")
-    train["gbv_text"] = train["text"]
-    val["gbv_text"] = val["text"]
-    test["gbv_text"] = test["text"]
-    train["text"] = train["gbv_text"].apply(generate_prompt)
-    val["text"] = val["gbv_text"].apply(generate_prompt)
-    test["text"] = test["gbv_text"].apply(generate_prompt)
+    # train["gbv_text"] = train["text"]
+    # val["gbv_text"] = val["text"]
+    # test["gbv_text"] = test["text"]
+    # train["text"] = train["gbv_text"].apply(generate_prompt)
+    # val["text"] = val["gbv_text"].apply(generate_prompt)
+    # test["text"] = test["gbv_text"].apply(generate_prompt)
     
     train["label"] = train["label"].apply(convert_hs_label)
     val["label"] = val["label"].apply(convert_hs_label)
@@ -69,31 +71,37 @@ def dataset_loader(dataset_name: str, tokenizer):
 def load_model(model_name: str):
     model_path = Path(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     model = AutoModelForSequenceClassification.from_pretrained(model_path if model_path.exists() else model_name, 
                                                                num_labels=2, 
                                                                device_map="auto",
                                                                dtype=torch.float16)
-    model = model.to(device)    
-    print(device)
+    model = model.to(DEVICE)    
+    print(DEVICE)
     return model, tokenizer
 
-def compute_metrics(eval_pred):    
-    logits, labels = eval_pred    
-    predictions = np.argmax(logits, axis=-1)
-    metric = evaluate.load("accuracy")
-    return metric.compute(predictions=predictions, references=labels)
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=-1)
+    acc = evaluate.load("accuracy").compute(predictions=preds, references=labels)
+    f1score = evaluate.load("f1").compute(predictions=preds, references=labels, average='binary')['f1']
+    return {"accuracy": acc["accuracy"], "f1": f1score}
 
 def train_model(model, tokenizer, train_dataset, eval_dataset, metrics_fn):
+    data_collator = DataCollatorWithPadding(tokenizer, return_tensors="pt")
+
     training_args = TrainingArguments(
         "test_trainer_ckpt",
         per_device_train_batch_size=128, 
-        num_train_epochs=10, #24,
+        num_train_epochs=3, #24,
         learning_rate=2e-05,
+        weight_decay=0.01,
+        warmup_ratio=0.06,
         eval_strategy="epoch",
         save_strategy="epoch",
         save_total_limit=2,
         load_best_model_at_end=True,
+        metric_for_best_model="eval_f1",
+        seed=SEED,
     )    
     trainer = Trainer(
         model=model,
@@ -101,57 +109,29 @@ def train_model(model, tokenizer, train_dataset, eval_dataset, metrics_fn):
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=metrics_fn,
+        data_collator=data_collator,
     )
     trainer.train()
     trainer.evaluate()
+    
+    label2id = {"Not GBV": 0, "GBV": 1}
+    id2label = {v: k for k, v in label2id.items()}
+    trainer.model.config.label2id = label2id
+    trainer.model.config.id2label = id2label
+
     trainer.save_model("test_trainer/gbv_model")
     tokenizer.save_pretrained("test_trainer/gbv_model")
-
-def convert_to_onnx(model, tokenizer, model_name_out, opset=18):
-    model = model.to("cpu").to(torch.float32)
-    pipeline = transformers.pipeline("text-classification",model=model,tokenizer=tokenizer)
-    onnx_convert.convert_pytorch(
-        pipeline, 
-        opset=opset, 
-        output=Path(model_name_out + ".onnx"), 
-        use_external_format=False
-    )
-    quantize_dynamic(
-        model_name_out + ".onnx", 
-        model_name_out + "_int8.onnx", 
-        weight_type=QuantType.QUInt8
-    )
-    print(f"ONNX and quantised models saved: {model_name_out}.onnx, {model_name_out}_int8.onnx")
-
-def predict_on_dataset(model_name, model_name_out, dataset, metric, quantized=True):
-    model_name = model_name_out + (".onnx" if not quantized else "_int8.onnx")    
-    session = ort.InferenceSession(model_name)    
-    input_feed = {
-        "input_ids": np.array(dataset['input_ids']),
-        "attention_mask": np.array(dataset['attention_mask']),
-    }
-    out = session.run(input_feed=input_feed,output_names=['output_0'])[0]
-    predictions = np.argmax(out, axis=-1) 
-    return metric.compute(predictions=predictions, references=dataset['label'])
     
 def main():
-    # model_name = 'microsoft/xtremedistil-l6-h256-uncased'
     model_name = 'FacebookAI/roberta-base'
     model_name_out = "onnx/gbv_classifier"
-    dataset_name = "dair-ai/emotion" #"emotion"
     model, tokenizer = load_model(model_name)
-    train, val, test = dataset_loader(dataset_name, tokenizer=tokenizer)
+    train, val, test = dataset_loader(tokenizer=tokenizer)
     # ipdb.set_trace()
     
     train_model(model=model, tokenizer=tokenizer, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
     # ipdb.set_trace()
     
-    opset = 20
-    convert_to_onnx(model=model, tokenizer=tokenizer, model_name_out=model_name_out, opset=opset)
-    
-    metric = evaluate.load("accuracy")
-    result = predict_on_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric)
-    print(f"ONNX gbv model accuracy: {result} -- based on {model_name}")
     
 if __name__ == "__main__":
     main()
