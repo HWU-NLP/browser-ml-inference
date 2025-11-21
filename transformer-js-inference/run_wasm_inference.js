@@ -15,7 +15,7 @@ try {
   // ignore if env not writable
 }
 
-const INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output A if it contains GBV, or B if not.";
+const INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output 1 if it contains GBV, or 0 if not.";
 const CHOICES = "Choices: 1 for GBV, or 0 for Not GBV.";
 
 function generatePrompt(text) {
