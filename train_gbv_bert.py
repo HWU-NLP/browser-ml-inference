@@ -24,8 +24,6 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 
 wandb_run_name = "roberta-base-gbv-classifier"
-os.environ["WANDB_PROJECT"] = "gbv_classification" 
-os.environ["WANDB_API_KEY"] = "4416c892140d26422657ac3d4e51faf82783c630"
 
 INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output 1 if it contains GBV, or 0 if not."
 CHOICES = "Choices: 1 for GBV, or 0 for Not GBV"
@@ -52,12 +50,12 @@ def dataset_loader(tokenizer):
     train, val = train_test_split(train_val, test_size=0.2, random_state=SEED, shuffle=True, stratify=train_val["label"])
     test = pd.read_csv("data/edos-test.tsv", sep="\t")
     test["label"] = test["label"].map({"sexist": 1, "not sexist": 0}).fillna(-100)
-    # train["gbv_text"] = train["text"]
-    # val["gbv_text"] = val["text"]
-    # test["gbv_text"] = test["text"]
-    # train["text"] = train["gbv_text"].apply(generate_prompt)
-    # val["text"] = val["gbv_text"].apply(generate_prompt)
-    # test["text"] = test["gbv_text"].apply(generate_prompt)
+    train["gbv_text"] = train["text"]
+    val["gbv_text"] = val["text"]
+    test["gbv_text"] = test["text"]
+    train["text"] = train["gbv_text"].apply(generate_prompt)
+    val["text"] = val["gbv_text"].apply(generate_prompt)
+    test["text"] = test["gbv_text"].apply(generate_prompt)
     
     train = pd.concat([train_val, test], ignore_index=True)
     
@@ -191,5 +189,5 @@ if __name__ == "__main__":
 
 '''
 Fro wolpertinger
-CUDA_VISIBLE_DEVICES=1 uv run python train_gbv_model.py
+CUDA_VISIBLE_DEVICES=1 uv run python train_gbv_bert.py
 '''
