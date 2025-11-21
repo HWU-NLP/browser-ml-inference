@@ -47,6 +47,34 @@ def load_model(model_name: str):
     print(DEVICE)
     return model, tokenizer
 
+def load_llm_model(model_name: str):
+    model_path = Path(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
+    
+    # Some LLM tokenizers (e.g. Qwen variants) don't define a pad token by default.
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_path if model_path.exists() else model_name,
+        num_labels=2,
+        device_map="auto",
+    )
+
+    model.resize_token_embeddings(len(tokenizer))
+    try:
+        if getattr(model.config, "pad_token_id", None) is None and getattr(tokenizer, "pad_token_id", None) is not None:
+            model.config.pad_token_id = tokenizer.pad_token_id
+        if getattr(model.config, "eos_token_id", None) is None and getattr(tokenizer, "eos_token_id", None) is not None:
+            model.config.eos_token_id = tokenizer.eos_token_id
+    except Exception:
+        pass
+
+    model = model.to(DEVICE)
+    print(DEVICE)
+    print("tokenizer.pad_token_id:", tokenizer.pad_token_id, "model.config.pad_token_id:", getattr(model.config, "pad_token_id", None))
+    return model, tokenizer
+
 def predict_on_batch_dataset(model, tokenizer, dataset, batch_size=32):
     model.eval()
     
@@ -115,17 +143,25 @@ def predict_onnx_on_batch_dataset(model_name, model_name_out, dataset, quantized
     return evaluate.load("accuracy").compute(predictions=all_preds, references=all_labels)
  
 def main():
-    # model_name = 'FacebookAI/roberta-base'
-    model_name = 'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct'
-    model_name_out = "onnx/gbv_classifier"
-    model, tokenizer = load_model(model_name)
-    test = dataset_loader(tokenizer=tokenizer)
+    # # prediction on bert model
+    # model_name = 'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct'
+    # model, tokenizer = load_model(model_name)
+    # test = dataset_loader(tokenizer=tokenizer)
+    # result = predict_on_batch_dataset(model=model, tokenizer=tokenizer, dataset=test, batch_size=32)
+    # print(f"GBV model result: {result} -- based on {model_name}")
     
-    # prediction on bert model
+    # prediction on llm model
+    model_name = '/home/aj2066/browser-ml-inference/test_trainer/gbv_qwen2'
+    model, tokenizer = load_llm_model(model_name)
+    test = dataset_loader(tokenizer=tokenizer)
     result = predict_on_batch_dataset(model=model, tokenizer=tokenizer, dataset=test, batch_size=32)
     print(f"GBV model result: {result} -- based on {model_name}")
     
     # # prediction on onnx model
+    # model_name = 'FacebookAI/roberta-base'
+    # model_name_out = "onnx/gbv_classifier"
+    # model, tokenizer = load_model(model_name)
+    # test = dataset_loader(tokenizer=tokenizer)
     # # result = predict_on_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric)
     # result = predict_on_batch_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric, batch_size=32)
     # print(f"ONNX gbv model accuracy: {result} -- based on {model_name}")
