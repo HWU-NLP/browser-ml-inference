@@ -23,12 +23,12 @@ import ipdb
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 
-wandb_run_name = "roberta-base-gbv-classifier"
-
 INSTRUCTION = "Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output 1 if it contains GBV, or 0 if not."
 CHOICES = "Choices: 1 for GBV, or 0 for Not GBV"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED = 42
+
+MODEL_NAME = 'FacebookAI/roberta-base'
 print(DEVICE)
 
 def set_seed(seed):
@@ -87,7 +87,7 @@ def compute_class_weights(dataset):
     class_weights = torch.tensor([weight_neg, weight_pos], dtype=torch.float32).to(DEVICE)
     return class_weights
 
-def load_model(model_name: str, class_weights=None):
+def load_model(model_name: str):
     model_path = Path(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -150,9 +150,8 @@ def train_model(model, tokenizer, train_dataset, eval_dataset, metrics_fn):
         metric_for_best_model="eval_f1",
         seed=SEED,
         report_to=["wandb"],
-        run_name=wandb_run_name,
+        run_name=f"{MODEL_NAME.split('/')[-1]}-gbv-classifier",
         max_grad_norm=1.0,
-        save_total_limit=3,
     )    
     
     trainer = MyTrainer(
@@ -172,13 +171,12 @@ def train_model(model, tokenizer, train_dataset, eval_dataset, metrics_fn):
     trainer.model.config.label2id = label2id
     trainer.model.config.id2label = id2label
 
-    trainer.save_model("test_trainer/gbv_model")
-    tokenizer.save_pretrained("test_trainer/gbv_model")
+    trainer.save_model(f"test_trainer/gbv_{MODEL_NAME.split('/')[-1]}")
+    tokenizer.save_pretrained(f"test_trainer/gbv_{MODEL_NAME.split('/')[-1]}")
     
 def main():
     set_seed(SEED)
-    model_name = 'FacebookAI/roberta-base'
-    model, tokenizer = load_model(model_name)
+    model, tokenizer = load_model(MODEL_NAME)
     train, val, test = dataset_loader(tokenizer=tokenizer)
     
     train_model(model=model, tokenizer=tokenizer, train_dataset=train, eval_dataset=val, metrics_fn=compute_metrics)
