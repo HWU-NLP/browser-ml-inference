@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
+import time
 
 import datasets
 from datasets import load_dataset, Dataset
@@ -31,8 +32,9 @@ def dataset_loader(tokenizer):
     test["gbv_text"] = test["text"]
     test["text"] = test["gbv_text"].apply(generate_prompt)
     
-    test_dataset = Dataset.from_pandas(test.iloc[:100, :])  # reduce test size for faster debugging
+    test_dataset = Dataset.from_pandas(test) #.iloc[:100, :])  # reduce test size for faster debugging
     tokenized_test_dataset = test_dataset.map(lambda examples: tokenize_function(examples, tokenizer), batched=True)
+    ipdb.set_trace()
     return tokenized_test_dataset
 
 def load_model(model_name: str):
@@ -143,19 +145,21 @@ def predict_onnx_on_batch_dataset(model_name, model_name_out, dataset, quantized
     return evaluate.load("accuracy").compute(predictions=all_preds, references=all_labels)
  
 def main():
-    # # prediction on bert model
-    # model_name = 'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct'
-    # model, tokenizer = load_model(model_name)
-    # test = dataset_loader(tokenizer=tokenizer)
-    # result = predict_on_batch_dataset(model=model, tokenizer=tokenizer, dataset=test, batch_size=32)
-    # print(f"GBV model result: {result} -- based on {model_name}")
+    start_time = time.time()
     
-    # prediction on llm model
-    model_name = '/home/aj2066/browser-ml-inference/test_trainer/gbv_qwen2'
-    model, tokenizer = load_llm_model(model_name)
+    # prediction on bert model
+    model_name = 'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct'
+    model, tokenizer = load_model(model_name)
     test = dataset_loader(tokenizer=tokenizer)
     result = predict_on_batch_dataset(model=model, tokenizer=tokenizer, dataset=test, batch_size=32)
     print(f"GBV model result: {result} -- based on {model_name}")
+    
+    # # prediction on llm model
+    # model_name = '/home/aj2066/browser-ml-inference/test_trainer/gbv_qwen2'
+    # model, tokenizer = load_llm_model(model_name)
+    # test = dataset_loader(tokenizer=tokenizer)
+    # result = predict_on_batch_dataset(model=model, tokenizer=tokenizer, dataset=test, batch_size=32)
+    # print(f"GBV model result: {result} -- based on {model_name}")
     
     # # prediction on onnx model
     # model_name = 'FacebookAI/roberta-base'
@@ -166,5 +170,13 @@ def main():
     # result = predict_on_batch_dataset(model_name=model_name, model_name_out=model_name_out, dataset=test, metric=metric, batch_size=32)
     # print(f"ONNX gbv model accuracy: {result} -- based on {model_name}")
     
+    end_time = time.time()
+    print(f"Total prediction time: {end_time - start_time:.2f} seconds")
+    
 if __name__ == "__main__":
     main()
+
+'''
+Fro wolpertinger
+CUDA_VISIBLE_DEVICES=1 uv run python predict.py
+'''
