@@ -16,7 +16,19 @@ const CHOICES = "Choices: 1 for GBV, or 0 for Not GBV.";
 //     ];
 
 const tsvFilePath = '/home/aj2066/browser-ml-inference/data/edos-test.tsv';
+const modelName = 'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct-ONNX';
+// const modelName = 'Heriot-WattUniversity/gbv-classifier-Qwen2.5-0.5B-Instruct-ONNX';
 const batchSize = 32;
+const quantized_version = "q8";
+// "modes": [
+//         "fp16",
+//         "q8",
+//         "int8",
+//         "uint8",
+//         "q4",
+//         "q4f16",
+//         "bnb4"
+//     ],
 
 function loadDataFromTSV(filePath) {
   try {
@@ -27,21 +39,29 @@ function loadDataFromTSV(filePath) {
       throw new Error('TSV file is empty');
     }
     
-    // Parse header to find 'text' column index
-    const headers = lines[0].split('\t');
+    const headers = lines[0].split('\t').map(h => h.trim());
+    console.log('DEBUG: Headers found:', headers);
+    console.log('DEBUG: Number of columns:', headers.length);
+    
     const textColumnIndex = headers.indexOf('text');
+    const labelColumnIndex = headers.indexOf('label');
+    
+    console.log('DEBUG: text column index:', textColumnIndex);
+    console.log('DEBUG: label column index:', labelColumnIndex);
     
     if (textColumnIndex === -1) {
       throw new Error('No "text" column found in TSV file');
     }
     
-    // Extract text values from all rows
-    const texts = lines.slice(1).map(line => {
-      const columns = line.split('\t');
-      return columns[textColumnIndex] || '';
-    }).filter(text => text.trim());
+    // Extract text and label values from all rows
+    const data = lines.slice(1).map(line => {
+      const columns = line.split('\t').map(c => c.trim());
+      const text = columns[textColumnIndex] || '';
+      const label = labelColumnIndex !== -1 ? columns[labelColumnIndex] : null;
+      return { text, label };
+    }).filter(item => item.text.trim());
     
-    return texts;
+    return data;
   } catch (err) {
     console.error(`Error loading TSV file: ${err.message}`);
     throw err;
@@ -49,34 +69,73 @@ function loadDataFromTSV(filePath) {
 }
 
 function generatePrompt(text) {
-  return `${INSTRUCTION}sText: ${text} ${CHOICES} Answer:`;
+  return `${INSTRUCTION} Text: ${text} ${CHOICES} Answer:`;
+}
+
+function mapLabel(label) {
+  if (label === null) return null;
+  const lowerLabel = label.toLowerCase();
+  if (lowerLabel === 'sexist' || lowerLabel === '1' || lowerLabel === 'gbv') {
+    return 'GBV';
+  } else if (lowerLabel === 'not sexist' || lowerLabel === '0' || lowerLabel === 'not gbv') {
+    return 'Not GBV';
+  }
+  return label;
 }
 
 async function main() {
     const startTime = performance.now();
     console.log('Starting inference...\n');
     
-    const texts = loadDataFromTSV(tsvFilePath);
+    const data = loadDataFromTSV(tsvFilePath);
+    const texts = data.map(d => d.text);
+    const labels = data.map(d => mapLabel(d.label));
+    
     console.log(`Loaded ${texts.length} texts from ${tsvFilePath}`);
-    console.log('Sample input texts:', texts.slice(0, 5));
+    console.log('Sample input texts:', texts.slice(0, 3));
+    console.log('Sample labels:', labels.slice(0, 3));
+
+    const promptTexts = texts.map(generatePrompt);
+    console.log('\nPrompt texts:', promptTexts.slice(0, 3));
 
     const classifier = await pipeline(
         'text-classification', 
-        'Heriot-WattUniversity/gbv-classifier-roberta-base-instruct-ONNX', 
-        // 'Heriot-WattUniversity/gbv-classifier-Qwen2.5-0.5B-Instruct-ONNX',
+        modelName,
         {
             backend: 'onnx', 
-            dtype: "q8", 
+            dtype: quantized_version , 
             // device: 'webgpu',
         }
     );
     
-    const promptTexts = texts.map(generatePrompt);
-    console.log('Prompt texts:', promptTexts.slice(0, 5));
-
     try {
         const result = await classifier(promptTexts, { batchSize: batchSize });
-        console.log('Pipeline result:', result.slice(0, 20)); // Log first 20 results
+        console.log('\nPipeline result:', result.slice(0, 10)); // Log first 10 results
+        
+        // Calculate accuracy
+        if (labels.some(l => l !== null)) {
+            const predictions = result.map(r => r.label); 
+            const groundTruth = labels;
+            
+            const validIndices = groundTruth.map((l, i) => l !== null ? i : null).filter(i => i !== null);
+            const validPredictions = validIndices.map(i => predictions[i]);
+            const validTruth = validIndices.map(i => groundTruth[i]);
+            
+            const correct = validPredictions.reduce((sum, pred, i) => sum + (pred === validTruth[i] ? 1 : 0), 0);
+            const accuracy = (correct / validPredictions.length * 100).toFixed(2);
+            
+            console.log('\nDetailed predictions:');
+            for (let i = 0; i < Math.min(10, texts.length); i++) {
+                const pred = predictions[i];
+                const truth = groundTruth[i];
+                const match = pred === truth ? '✓' : '✗';
+                console.log(`${match} Text: "${texts[i].substring(0, 50)}..." | Predicted: ${pred} | Truth: ${truth}`);
+            }
+
+            console.log(`\nModel used: ${modelName}`);
+            console.log(`Quantized version used: ${quantized_version}`);
+            console.log(`Accuracy: ${accuracy}% (${correct}/${validPredictions.length} correct)`);
+        }
     } catch (err) {
         console.error('Pipeline error:', err);
         throw err;
@@ -84,7 +143,8 @@ async function main() {
     
     const endTime = performance.now();
     const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(2);
-    console.log(`\nTotal execution time: ${elapsedSeconds} seconds`);
+
+    console.log(`Total execution time: ${elapsedSeconds} seconds`);
 }
 
 main();
