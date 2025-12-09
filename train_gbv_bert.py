@@ -61,7 +61,7 @@ def dataset_loader(tokenizer):
     
     train_dataset = Dataset.from_pandas(train)
     val_dataset = Dataset.from_pandas(val)
-    test_dataset = Dataset.from_pandas(test.iloc[:10, :])  # reduce test size for faster debugging
+    test_dataset = Dataset.from_pandas(test)  
     # ipdb.set_trace()
     
     tokenized_train_dataset = train_dataset.map(lambda examples: tokenize_function(examples, tokenizer), batched=True)
