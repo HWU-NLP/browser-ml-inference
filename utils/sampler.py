@@ -4,27 +4,26 @@ import random
 import torch
 
 
-class UniqueBatchSampler(Sampler):
-    def __init__(self, labels, group_keys, batch_size, random_state=42, mode="train"):
+class BatchSampler(Sampler):
+    def __init__(self, labels, batch_size, random_state=42, mode="train"):
         """
         labels: list of sample identifiers (e.g. cs texts or indices)
-        group_keys: list of values to group by (e.g. gbv texts or gbv ids)
         batch_size: number of unique labels per batch
         random_state: seed for reproducibility
         mode: 'train' or 'generate'
         """
         assert mode in ["train", "generate"]
-        assert len(labels) == len(group_keys)
+        # assert len(labels) == len(group_keys)
 
         self.labels = labels
-        self.group_keys = group_keys
+        # self.group_keys = group_keys
         self.batch_size = batch_size
         self.random_state = random_state
         self.mode = mode
 
-        self.group_to_indices = defaultdict(list)
-        for idx, group in enumerate(group_keys):
-            self.group_to_indices[group].append(idx)
+        # self.group_to_indices = defaultdict(list)
+        # for idx, group in enumerate(group_keys):
+        #     self.group_to_indices[group].append(idx)
 
         self.total_size = len(labels)
         
@@ -45,24 +44,10 @@ class UniqueBatchSampler(Sampler):
         return self._batch_iterator()
     
     def _batch_iterator(self):
-        used_indices = set()
-        remaining_group_keys = self.group_keys #.copy()
-
-        while len(used_indices) < self.total_size:
-            batch = []
-            available_groups = list(set([g for idx, g in enumerate(remaining_group_keys) if idx not in used_indices]))
-            if not available_groups:
-                break
-            selected_groups = random.sample(available_groups, min(self.batch_size, len(available_groups)))
-            for group in selected_groups:
-                candidates = [i for i in self.group_to_indices[group] if i not in used_indices]
-                if candidates:
-                    idx = random.choice(candidates)
-                    batch.append(idx)
-                    used_indices.add(idx)
-                    remaining_group_keys[idx] = None  # prevent this group from being selected again in this loop
-            if batch:
-                yield batch
+        indices = list(range(self.total_size))
+        random.shuffle(indices)
+        for start in range(0, self.total_size, self.batch_size):
+            yield indices[start : start + self.batch_size]
                 
                       
     def __len__(self):

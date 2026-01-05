@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import re
 from ast import literal_eval
@@ -13,6 +14,7 @@ system_prompt = "You are an expert conversationalist who responds to the best of
 gbv_prompt = (
     lambda gbv: f"""
 Classify the following message from a social media platform. It might contain a form of gender-based violence (GBV). Output GBV if it contains GBV, or NotGBV if not.
+Return ONLY one of: GBV, NotGBV. Do not add any other words.
 
 #### Input Text:
 {gbv}
@@ -65,23 +67,31 @@ class PreprocessedData:
 
     def apply_instruction_template(self, input, output=None):   
         if self.instruct:
-            self.tokenizer.add_special_tokens({"pad_token":"<pad>"}) 
-            self.tokenizer.pad_token_id = 0  # unk
-            self.tokenizer.bos_token_id = 1
-            self.tokenizer.eos_token_id = 2
-            
+            # If a tokenizer has no explicit pad token (common for some LLMs),
+            # reuse EOS as PAD to avoid resizing embeddings.
+            if getattr(self.tokenizer, "pad_token", None) is None:
+                if getattr(self.tokenizer, "eos_token", None) is not None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+
             if output is not None:
                 messages = [
-                    {'content': self.system_prompt,'role': 'system'},
-                    {'content': input, 'role': 'user'}, 
-                    {'content': output, 'role': 'assistant'},
-                ] 
+                    {"content": self.system_prompt, "role": "system"},
+                    {"content": input, "role": "user"},
+                    {"content": output, "role": "assistant"},
+                ]
+                add_generation_prompt = False
             else:
                 messages = [
-                    {'content': self.system_prompt,'role': 'system'},
-                    {'content': input, 'role': 'user'}, 
+                    {"content": self.system_prompt, "role": "system"},
+                    {"content": input, "role": "user"},
                 ]
-            return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                add_generation_prompt = True
+
+            return self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
         else:
             return input
         
@@ -119,7 +129,7 @@ class PreprocessedData:
                 padding="max_length",
                 max_length=self.max_length,
                 return_tensors="pt",
-            ).to(self.device)
+            )
         else:
             encodings = self.tokenizer(
                 self.input_texts(),
@@ -127,7 +137,7 @@ class PreprocessedData:
                 padding="max_length",
                 max_length=self.max_length,
                 return_tensors="pt",
-            ).to(self.device)
+            )
         return encodings
 
     def calculate_encodings_label(self):
@@ -141,20 +151,29 @@ class PreprocessedData:
                 padding="max_length",
                 max_length=self.max_length,
                 return_tensors="pt",
-            ).to('cuda')
+            )
             input_encodings = self.tokenizer(
                 self.input_texts(),
                 truncation=True,
                 padding="max_length",
                 max_length=self.max_length,
                 return_tensors="pt",
-            ).to('cuda')
+            )
             input_label_ids = input_label_encodings["input_ids"]
-            input_ids = input_encodings["input_ids"]
+            input_label_mask = input_label_encodings["attention_mask"]
+            input_mask = input_encodings["attention_mask"]
+            
             label_encodings = input_label_ids.clone()
-            mask = (input_label_ids == input_ids) & (input_ids != self.tokenizer.pad_token_id)
-            label_encodings[mask] = -100
-
+            label_encodings[input_label_mask == 0] = -100  # ignore padding tokens
+            
+            input_len = input_mask.sum(dim=1).tolist()
+            for i, ilen in enumerate(input_len):
+                # works for both left- and right-padding.
+                nonpad_positions = (input_label_mask[i] == 1).nonzero(as_tuple=False).squeeze(-1)
+                plen = min(int(ilen), int(nonpad_positions.numel()))
+                if plen > 0:
+                    label_encodings[i, nonpad_positions[:plen]] = -100
+            
         else:
             label_encodings = self.tokenizer(
                 self.label_text(), 
@@ -162,7 +181,7 @@ class PreprocessedData:
                 padding="max_length",
                 max_length=self.max_length,
                 return_tensors="pt",
-            ).to('cuda')
+            )
         return label_encodings
 
     def input_texts(self):

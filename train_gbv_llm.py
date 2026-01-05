@@ -18,20 +18,18 @@ from trl import SFTTrainer
 from peft import LoraConfig, get_peft_model
 
 from utils.dataset import GBV_EDOS
-from utils.sampler import UniqueBatchSampler
+from utils.sampler import BatchSampler
 
 from huggingface_hub import login
-import ipdb 
+import ipdb
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 os.environ["WANDB_PROJECT"] = "gbv_classification" 
-os.environ["WANDB_API_KEY"] = "<wandb_api_key>"
-
-hub_token = "<hf_token>"
-login(token=hub_token)
+if os.environ.get("HF_TOKEN"):
+    login(token=os.environ["HF_TOKEN"])
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED = 42
@@ -41,7 +39,8 @@ EPOCHS = 5
 # Debug mode: set `DEBUG_TRAIN=1` in environment to run a fast, low-memory end-to-end
 DEBUG = bool(int(os.environ.get("DEBUG_TRAIN", "0"))) or os.environ.get("DEBUG", "0") == "1"
 
-MODEL_NAME = 'HuggingFaceTB/SmolLM2-135M-Instruct' #'Qwen/Qwen2.5-0.5B-Instruct'
+# MODEL_NAME = 'HuggingFaceTB/SmolLM2-135M-Instruct' 
+MODEL_NAME = 'Qwen/Qwen2.5-0.5B-Instruct'
 print(DEVICE)
 
 def set_seed(seed):
@@ -63,11 +62,15 @@ def print_number_of_trainable_model_parameters(model):
 class DataCollatorForPrompt:
     def __init__(self, tokenizer):
         self.collator = DataCollatorWithPadding(tokenizer, padding=True)  # padding="max_length",
+        self.tokenizer = tokenizer
 
     def __call__(self, batch):
         # Only keep model inputs
         cleaned_batch = [{k: v for k, v in d.items() if k in ['input_ids', 'attention_mask', 'labels']} for d in batch]
-        return self.collator(cleaned_batch)
+        out = self.collator(cleaned_batch)
+        if "labels" in out and getattr(self.tokenizer, "pad_token_id", None) is not None:
+            out["labels"] = out["labels"].masked_fill(out["labels"] == self.tokenizer.pad_token_id, -100)
+        return out
 
 class CustomSFTTrainer(SFTTrainer):
     def __init__(self, *args, random_state=42, **kwargs):
@@ -77,9 +80,8 @@ class CustomSFTTrainer(SFTTrainer):
     def get_train_dataloader(self):
         return DataLoader(
             self.train_dataset,
-            batch_sampler=UniqueBatchSampler(
+            batch_sampler=BatchSampler(
                 labels=[s['label'] for s in self.train_dataset],
-                group_keys=[s['unique_labels'] for s in self.train_dataset],
                 batch_size=self.args.per_device_train_batch_size,
                 random_state=self.random_state,
             ),
@@ -91,9 +93,8 @@ class CustomSFTTrainer(SFTTrainer):
         eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
         return DataLoader(
             eval_dataset,
-            batch_sampler=UniqueBatchSampler(
+            batch_sampler=BatchSampler(
                 labels=[s['label'] for s in self.eval_dataset],
-                group_keys=[s['unique_labels'] for s in self.eval_dataset],
                 batch_size=self.args.per_device_eval_batch_size,
                 random_state=self.random_state,
             ),
@@ -105,20 +106,33 @@ def load_model(model_name: str):
     model_path = Path(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_path if model_path.exists() else model_name)
 
+    if tokenizer.pad_token is None and tokenizer.eos_token is not None:
+        tokenizer.pad_token = tokenizer.eos_token
+    try:
+        tokenizer.padding_side = "left"
+    except Exception:
+        pass
+    
     model = AutoModelForCausalLM.from_pretrained(
         model_path if model_path.exists() else model_name,
         device_map="auto",
     )
+    try:
+        if getattr(model.config, "pad_token_id", None) is None and getattr(tokenizer, "pad_token_id", None) is not None:
+            model.config.pad_token_id = tokenizer.pad_token_id
+        if getattr(model.config, "eos_token_id", None) is None and getattr(tokenizer, "eos_token_id", None) is not None:
+            model.config.eos_token_id = tokenizer.eos_token_id
+    except Exception:
+        pass
     
-    config = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules=["q_proj","v_proj"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
-    
+    # config = LoraConfig(
+    #     r=8,
+    #     lora_alpha=16,
+    #     target_modules=["q_proj","v_proj"],
+    #     lora_dropout=0.05,
+    #     bias="none",
+    #     task_type="CAUSAL_LM",
+    # )
     # model = get_peft_model(model, config)
     
     model = model.to(DEVICE)
@@ -231,8 +245,6 @@ def main():
         output_dir=output_dir,
         wandb_run_name=wandb_run_name,
     )
-
-    ipdb.set_trace()
     
     end_time = time.time()
     logger.info(f"Time cost: {end_time - start_time:.4f} seconds")
